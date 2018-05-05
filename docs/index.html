@@ -61,9 +61,12 @@
                 mouse.x = $e.canvasX;
                 mouse.y = Math.max(30, $e.canvasY);
             },
-            click: function () {
-                shoot();
-            }
+            touchmove: function ($e) {
+                mouse.x = $e.canvasX;
+                mouse.y = Math.max(30, $e.canvasY);
+            },
+            mouseup: shoot,
+            touchend: shoot,
         }
     });
     $Painter.start();
