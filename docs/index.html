@@ -35,7 +35,8 @@
 
     // 游戏状态
     var canShoot = true;
-    var score = 0;
+    var score = 0, ballLeft = 0, ballCount = 5;
+    var blockArray = [];
 
     // 图片
     var BALL = Easycanvas.imgLoader('./ball.png');
@@ -43,13 +44,7 @@
     var TRIANGLE = Easycanvas.imgLoader('./triangle.png');
 
     // 用于碰撞检测
-    var BALL_TYPE = 1;
-    var BLOCK_TYPE = 2;
-    var BORDER_TYPE = 3;
-    var BOTTOM_TYPE = 4;
-
-    var ballLeft = 0;
-    var blockArray = [];
+    var BALL_TYPE = 1, BLOCK_TYPE = 2, BORDER_TYPE = 3, BOTTOM_TYPE = 4, BONUS_TYPE = 5;
 
     // 初始化easycanvas实例
     var $Painter = new Easycanvas.painter();
@@ -84,6 +79,19 @@
             color: 'black'
         }
     });
+    $Painter.add({
+        content: {
+            text: function () {
+                return '小球个数:' + ballCount;
+            }
+        },
+        style: {
+            tx: 395, ty: 5,
+            textAlign: 'right',
+            textVerticalAlign: 'top',
+            color: 'black'
+        }
+    });
 
     // 初始化easycanvas物理引擎
     var $space = new Easycanvas.class.sprite({
@@ -103,8 +111,8 @@
     // 球和方块碰撞
     space.addCollisionHandler(BALL_TYPE, BLOCK_TYPE, null, null, null,
     function (cp) {
-        var block = cp.b.$sprite.name === 'block' ? cp.b.$sprite : cp.b.$sprite;
-        var ball = cp.a.$sprite.name === 'block' ? cp.a.$sprite : cp.a.$sprite;
+        var block = cp.b.$sprite.name === 'block' ? cp.b.$sprite : cp.a.$sprite;
+        var ball = cp.a.$sprite.name === 'block' ? cp.b.$sprite : cp.a.$sprite;
 
         // 撞过一次就重置作用力（这样只剩下重力了，就开始往下掉）
         ball.$physics.body.resetForces();
@@ -128,15 +136,32 @@
     });
     // 球和侧边碰撞
     space.addCollisionHandler(BALL_TYPE, BORDER_TYPE, null, null, null, function (cp) {
-        var ball = cp.a.$sprite.name === 'block' ? cp.a.$sprite : cp.a.$sprite;
+        var ball = cp.a.$sprite.name === 'ball' ? cp.a.$sprite : cp.b.$sprite;
 
         // 撞过一次就重置作用力（这样只剩下重力了，就开始往下掉）
         ball.$physics.body.resetForces();
         return false;
     });
+    // 球和吃的碰撞
+    space.addCollisionHandler(BALL_TYPE, BONUS_TYPE, null, null, null, function (cp) {
+        var bonus = cp.a.$sprite.name === 'bonus' ? cp.a.$sprite : cp.b.$sprite;
+
+        // 一个球被连续撞，只加一次
+        if (bonus.used) return false;
+        bonus.used = 1;
+
+        // 异步删除
+        $Painter.nextTick(function () {
+            bonus.physicsOff();
+            bonus.remove();
+            blockArray.splice(blockArray.indexOf(bonus), 1);
+            ballCount++;
+        });
+        return false;
+    });
     // 球和底部碰撞，准备收回
     space.addCollisionHandler(BALL_TYPE, BOTTOM_TYPE, function (cp) {
-        var ball = cp.a.$sprite.name === 'ball' ? cp.a.$sprite : cp.a.$sprite;
+        var ball = cp.a.$sprite.name === 'ball' ? cp.a.$sprite : cp.b.$sprite;
         if (ball.toRemove) {
             return true;
         }
@@ -168,6 +193,7 @@
                     Math.random() < 0.5 && addBlock(5 + score / 6, true);
                     Math.random() < 0.3 && addBlock(5 + score / 7, true);
                     Math.random() < 0.2 && addBlock(5 + score / 8, true);
+                    Math.random() < 0.3 && addBonus();
                 }
             }
         }, 500);
@@ -211,7 +237,7 @@
         canShoot = false;
 
         var currentMouse = JSON.parse(JSON.stringify(mouse));
-        for (var i = 0; i < 5; i++) {
+        for (var i = 0; i < ballCount; i++) {
             setTimeout(function () {
                 addBall(currentMouse);
             }, i * 100);
@@ -318,6 +344,41 @@
         addBlock(5);
     }
 
+    function addBonus () {
+        var deg = Math.floor(Math.random() * 360);
+        var sprite = $space.add(new Easycanvas.class.sprite({
+            name: 'bonus',
+            bonus: true,
+            content: {
+                img: BALL,
+            },
+            physics: {
+                shape: [
+                    [[0, 0], [0, 30]],
+                    [[0, 30], [30, 30]],
+                    [[30, 30], [30, 0]],
+                    [[30, 0], [0, 0]]
+                ],
+                mass: 100,
+                friction: 0.1,
+                elasticity: 0.8,
+                collisionType: BONUS_TYPE,
+                static: true,
+            },
+            style: {
+                tw: 30, th: 30,
+                tx: Math.floor(Math.random() * (width - 100)) + 50,
+                ty: 500,
+                locate: 'lt',
+                zIndex: 2,
+                fv: Easycanvas.transition.pendulum(0, 0.2, 200).loop(),
+                fhv: Easycanvas.transition.pendulum(0.2, 0, 200).loop(),
+            },
+        }));
+        sprite.physicsOn();
+        blockArray.push(sprite);
+    }
+
     // 上半部分的边，摩擦小、弹性大
     var borderSprite = $space.add(new Easycanvas.class.sprite({
         physics: {
@@ -357,4 +418,8 @@
         },
     }));
     bottomSprite.physicsOn();
+
+    document.body.addEventListener('touchmove' , function (e) {
+        e.preventDefault();
+    })
 </script>
