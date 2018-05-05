@@ -93,100 +93,83 @@
 
     // 设置easycanvas碰撞处理规则
     var space = $space.launch();
-    space.addCollisionHandler(
-        // 球和球不碰撞（感觉看着很不真实啊，但是游戏就是这样的）
-        BALL_TYPE, BALL_TYPE,
-        function (cp) {
-            return false;
-        },
-    );
-    space.addCollisionHandler(
-        // 球和方块碰撞
-        BALL_TYPE, BLOCK_TYPE,
-        null,
-        null,
-        null,
-        function (cp) {
-            var block = cp.b.$sprite.name === 'block' ? cp.b.$sprite : cp.b.$sprite;
-            var ball = cp.a.$sprite.name === 'block' ? cp.a.$sprite : cp.a.$sprite;
+    // 球和球不碰撞（感觉看着很不真实啊，但是游戏就是这样的）
+    space.addCollisionHandler(BALL_TYPE, BALL_TYPE, function (cp) {
+        return false;
+    });
+    // 球和方块碰撞
+    space.addCollisionHandler(BALL_TYPE, BLOCK_TYPE, null, null, null,
+    function (cp) {
+        var block = cp.b.$sprite.name === 'block' ? cp.b.$sprite : cp.b.$sprite;
+        var ball = cp.a.$sprite.name === 'block' ? cp.a.$sprite : cp.a.$sprite;
 
-            // 撞过一次就重置作用力（这样只剩下重力了，就开始往下掉）
-            ball.$physics.body.resetForces();
+        // 撞过一次就重置作用力（这样只剩下重力了，就开始往下掉）
+        ball.$physics.body.resetForces();
 
-            // 这里直接通过父对象从子对象拿数据，这种数据的依赖方式不好，但是这么简单个应用，无所谓了
-            // 更好的是例如通过easycanvas的自定义事件广播下去
-            block.children[0].content.text--;
-            score++;
-            if (!block.children[0].content.text) {
-                // 把方块撞成0了，先隐藏
-                block.style.visible = false;
+        // 这里直接通过父对象从子对象拿数据，这种数据的依赖方式不好，但是这么简单个应用，无所谓了
+        // 更好的是例如通过easycanvas的自定义事件广播下去
+        block.children[0].content.text--;
+        score++;
+        if (!block.children[0].content.text) {
+            // 把方块撞成0了，先隐藏
+            block.style.visible = false;
 
-                // 异步删除这个方块（为啥异步？因为要在碰撞处理之后再删，不然就透过去了）
-                $Painter.nextTick(function () {
-                    block.physicsOff();
-                    block.remove();
-                    blockArray.splice(blockArray.indexOf(block), 1);
-                });
-            }
-            return false;
+            // 异步删除这个方块（为啥异步？因为要在碰撞处理之后再删，不然就透过去了）
+            $Painter.nextTick(function () {
+                block.physicsOff();
+                block.remove();
+                blockArray.splice(blockArray.indexOf(block), 1);
+            });
         }
-    );
-    space.addCollisionHandler(
-        // 球和侧边碰撞
-        BALL_TYPE, BORDER_TYPE,
-        null,
-        null,
-        null,
-        function (cp) {
-            var ball = cp.a.$sprite.name === 'block' ? cp.a.$sprite : cp.a.$sprite;
+        return false;
+    });
+    // 球和侧边碰撞
+    space.addCollisionHandler(BALL_TYPE, BORDER_TYPE, null, null, null, function (cp) {
+        var ball = cp.a.$sprite.name === 'block' ? cp.a.$sprite : cp.a.$sprite;
 
-            // 撞过一次就重置作用力（这样只剩下重力了，就开始往下掉）
-            ball.$physics.body.resetForces();
-            return false;
-        }
-    );
-    space.addCollisionHandler(
-        // 球和底部碰撞，准备收回
-        BALL_TYPE, BOTTOM_TYPE,
-        function (cp) {
-            var ball = cp.a.$sprite.name === 'ball' ? cp.a.$sprite : cp.a.$sprite;
-            if (ball.toRemove) {
-                return true;
-            }
-
-            ball.toRemove = true;
-            ball.style.opacity = Easycanvas.transition.linear(1, 0, 500);
-            setTimeout(function () {
-                ball.physicsOff();
-                ball.remove();
-                ballLeft--;
-
-                if (ballLeft === 0) {
-                    canShoot = true;
-
-                    blockArray.forEach(function (block) {
-                        block.physicsOff();
-                        block.physicsOn();
-                        block.style.ty -= 50;
-                        if (block.style.ty < 50) {
-                            canShoot = false;
-                        }
-                    });
-
-                    if (!canShoot) {
-                        alert('You lose');
-                    } else {
-                        startAim();
-                        addBlock(5 + score / 5, true);
-                        Math.random() < 0.5 && addBlock(5 + score / 6, true);
-                        Math.random() < 0.3 && addBlock(5 + score / 7, true);
-                        Math.random() < 0.2 && addBlock(5 + score / 8, true);
-                    }
-                }
-            }, 500);
+        // 撞过一次就重置作用力（这样只剩下重力了，就开始往下掉）
+        ball.$physics.body.resetForces();
+        return false;
+    });
+    // 球和底部碰撞，准备收回
+    space.addCollisionHandler(BALL_TYPE, BOTTOM_TYPE, function (cp) {
+        var ball = cp.a.$sprite.name === 'ball' ? cp.a.$sprite : cp.a.$sprite;
+        if (ball.toRemove) {
             return true;
-        },
-    );
+        }
+
+        ball.toRemove = true;
+        ball.style.opacity = Easycanvas.transition.linear(1, 0, 500);
+        setTimeout(function () {
+            ball.physicsOff();
+            ball.remove();
+            ballLeft--;
+
+            if (ballLeft === 0) {
+                canShoot = true;
+
+                blockArray.forEach(function (block) {
+                    block.physicsOff();
+                    block.physicsOn();
+                    block.style.ty -= 50;
+                    if (block.style.ty < 50) {
+                        canShoot = false;
+                    }
+                });
+
+                if (!canShoot) {
+                    alert('You lose');
+                } else {
+                    startAim();
+                    addBlock(5 + score / 5, true);
+                    Math.random() < 0.5 && addBlock(5 + score / 6, true);
+                    Math.random() < 0.3 && addBlock(5 + score / 7, true);
+                    Math.random() < 0.2 && addBlock(5 + score / 8, true);
+                }
+            }
+        }, 500);
+        return true;
+    });
 
     // 显示瞄准轨迹
     var startAim = function () {
@@ -334,8 +317,6 @@
 
     // 上半部分的边，摩擦小、弹性大
     var borderSprite = $space.add(new Easycanvas.class.sprite({
-        content: {
-        },
         physics: {
             shape: [
                 [[0, 0], [width, 0]],
@@ -356,8 +337,6 @@
 
     // 下半部分的边，摩擦大、弹性小
     var bottomSprite = $space.add(new Easycanvas.class.sprite({
-        content: {
-        },
         physics: {
             shape: [
                 [[0, height], [width, height]],
