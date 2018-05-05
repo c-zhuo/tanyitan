@@ -16,27 +16,42 @@
 </body>
 
 <script>
-    // 全屏游戏？算了不搞了，还是仿照原版吧
-    // var width = document.body.clientWidth - 20, height = document.body.clientHeight - 20;
-    var width = 400, height = 600;
+    // 在html直接写代码，不编译、不构建，不然应该用const的
+    var width = 400, height = 600, ballSize = 30;
+
+    // 记录鼠标轨迹
+    var mouse = {x: 300, y: 50};
+
+    // 游戏状态
+    var canShoot = true;
 
     // 图片
     var BALL = Easycanvas.imgLoader('./ball.png');
-    var BLOCK = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC4AAAAwCAYAAABuZUjcAAAAlElEQVRoBe3SwQmAQBDFUNe6PNmC/deiYAU5hIWBeA6f4a3rup/3GPidA2/+T+7w3S+XeOJQoF8FQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHBor/gGBBgIwevtkRgAAAABJRU5ErkJggg==';
+    var BLOCK = Easycanvas.imgLoader('./block.jpg');
+    var TRIANGLE = Easycanvas.imgLoader('./triangle.png');
 
     // 用于碰撞检测
     var BALL_TYPE = 1;
     var BLOCK_TYPE = 2;
     var BORDER_TYPE = 3;
 
-    var ballSize = 30;
     var ballArray = [];
+    var blockArray = [];
 
     // 初始化easycanvas实例
     var $Painter = new Easycanvas.painter();
     $Painter.register(document.getElementById('foo'), {
         width: width,
         height: height,
+        events: {
+            mousemove: function ($e) {
+                mouse.x = $e.canvasX;
+                mouse.y = Math.max(30, $e.canvasY);
+            },
+            click: function () {
+                shoot();
+            }
+        }
     });
     $Painter.start();
 
@@ -44,7 +59,7 @@
     var $space = new Easycanvas.class.sprite({
         physics: {
             gravity: 1,
-            accuracy: 2,
+            accuracy: 3,
         },
     });
     $Painter.add($space);
@@ -60,6 +75,9 @@
         function (cp) {
             var sq = cp.b.$sprite.name === 'square' ? cp.b.$sprite : cp.b.$sprite;
             var ball = cp.a.$sprite.name === 'square' ? cp.a.$sprite : cp.a.$sprite;
+
+            // 撞过一次就重置作用力（这样只剩下重力了，就开始往下掉）
+            ball.$physics.body.resetForces();
 
             // 这里直接通过父对象从子对象拿数据，这种数据的依赖方式不好，但是这么简单个应用，无所谓了
             // 更好的是例如通过easycanvas的自定义事件广播下去
@@ -85,9 +103,52 @@
         },
     );
 
-    // 放入小球
-    function addBall () {
-        var ballSprite = new Easycanvas.class.sprite({
+    // 显示瞄准轨迹
+    var startAim = function () {
+        for (var i = 0; i < 7; i ++) {
+            $Painter.add({
+                content: {
+                    img: BALL,
+                },
+                data: {
+                    gap: i / 6,
+                },
+                style: {
+                    tx: function () {
+                        return 200 + (mouse.x - 200) * this.data.gap;
+                    },
+                    ty: function () {
+                        return 20 + (mouse.y - 20) * this.data.gap;
+                    },
+                    tw: 20, th: 20,
+                    opacity: 0.4,
+                },
+                hooks: {
+                    shoot: function () {
+                        this.remove();
+                    }
+                }
+            });
+        }
+    };
+    startAim();
+
+    var shoot = function () {
+        if (!canShoot) return;
+
+        $Painter.broadcast('shoot');
+        canShoot = false;
+
+        var currentMouse = JSON.parse(JSON.stringify(mouse));
+        for (var i = 0; i < 5; i++) {
+            setTimeout(function () {
+                addBall(currentMouse);
+            }, i * 100);
+        }
+    };
+
+    function addBall (mouse) {
+        var $ball = new Easycanvas.class.sprite({
             name: 'ball',
             content: {
                 img: BALL,
@@ -98,7 +159,7 @@
                     // 改成位运算符吧，看着能高大上一点（其实在这里卵用没有）
                     [ballSize >> 1, ballSize >> 1, ballSize >> 1]
                 ],
-                mass: 0.1, // 质量
+                mass: 1, // 质量
                 friction: 0.3, // 摩擦（摩擦太大了会损失能量）
                 elasticity: 1, // 弹性（弹性为1，弹着才能爽一点）
                 collisionType: BALL_TYPE,
@@ -106,29 +167,41 @@
             style: {
                 tw: ballSize, th: ballSize,
                 sx: 0, sy: 0,
-                tx: Math.floor(Math.random() * 300) + 1,
-                ty: 15,
-                locate: 'lt',
+                tx: 200,
+                ty: 20,
                 zIndex: 1,
             },
         });
-        $space.add(ballSprite);
-        ballSprite.physicsOn();
-        ballArray.push(ballSprite);
+        $space.add($ball);
+
+        $ball.physicsOn();
+        $Painter.nextTick(function () {
+            $Painter.nextTick(function () {
+                // 抵消重力
+                $ball.$physics.body.applyForce({x: 0, y: 500}, {x: 0, y: 0});
+
+                // 初速度
+                var speed = {
+                    x: (mouse.x - 200) / (20 - mouse.y),
+                    y: 1
+                };
+
+                // 修正速度，确保从各个角度射出小球的速度差不多
+                var muti = Math.sqrt(Math.pow(speed.x, 2) + Math.pow(speed.y, 2)) / 500;
+
+                $ball.$physics.body.setVel({
+                    x: -speed.x / muti,
+                    y: -speed.y / muti,
+                });
+            });
+        });
+
+        ballArray.push($ball);
     }
-    addBall();
 
-    var ballCount = 0;
-    setInterval(() => {
-        if (ballCount > 20) return;
-
-        addBall();
-        ballCount++;
-    }, 200);
-
-    function addSq () {
+    function addBlock () {
         var deg = Math.floor(Math.random() * 360);
-        var sqSprite = $space.add(new Easycanvas.class.sprite({
+        var sprite = $space.add(new Easycanvas.class.sprite({
             name: 'square',
             content: {
                 img: BLOCK,
@@ -167,13 +240,15 @@
                 }
             }]
         }));
-        sqSprite.physicsOn();
+        sprite.physicsOn();
+        blockArray.push(sprite);
     }
 
     for (var i = 0; i < 20; i += 1) {
-        addSq();
+        addBlock();
     }
 
+    // 上半部分的边，摩擦小、弹性大
     var borderSprite = $space.add(new Easycanvas.class.sprite({
         name: 'border-static',
         content: {
@@ -181,12 +256,11 @@
         physics: {
             shape: [
                 [[0, 0], [width, 0]],
-                [[0, 0], [0, height]],
-                [[width, 0], [width, height]],
-                [[0, height], [width, height]]
+                [[0, 0], [0, height * 0.9]],
+                [[width, 0], [width, height * 0.9]],
             ],
-            friction: 1,
-            elasticity: 0,
+            friction: 0.2,
+            elasticity: 0.8,
             collisionType: BORDER_TYPE,
             static: true
         },
@@ -196,4 +270,27 @@
         },
     }));
     borderSprite.physicsOn();
+
+    // 下半部分的边，摩擦大、弹性小
+    var bottomSprite = $space.add(new Easycanvas.class.sprite({
+        name: 'border-static',
+        content: {
+        },
+        physics: {
+            shape: [
+                [[0, height], [width, height]],
+                [[0, height * 0.9], [0, height]],
+                [[width, height * 0.9], [width, height]],
+            ],
+            friction: 5,
+            elasticity: 0.2,
+            collisionType: BORDER_TYPE,
+            static: true
+        },
+        style: {
+            tx: 0, ty: 0, tw: width, th: height,
+            locate: 'lt',
+        },
+    }));
+    bottomSprite.physicsOn();
 </script>
