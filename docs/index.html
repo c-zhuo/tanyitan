@@ -16,11 +16,15 @@
 </body>
 
 <script>
+    // 全屏游戏？算了不搞了，还是仿照原版吧
     // var width = document.body.clientWidth - 20, height = document.body.clientHeight - 20;
     var width = 400, height = 600;
+
+    // 图片
+    var BALL = Easycanvas.imgLoader('./ball.png');
     var BLOCK = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC4AAAAwCAYAAABuZUjcAAAAlElEQVRoBe3SwQmAQBDFUNe6PNmC/deiYAU5hIWBeA6f4a3rup/3GPidA2/+T+7w3S+XeOJQoF8FQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHEocQmlZ4holHBor/gGBBgIwevtkRgAAAABJRU5ErkJggg==';
 
-    var BALL = Easycanvas.imgLoader('./ball.png');
+    // 用于碰撞检测
     var BALL_TYPE = 1;
     var BLOCK_TYPE = 2;
     var BORDER_TYPE = 3;
@@ -28,6 +32,7 @@
     var ballSize = 30;
     var ballArray = [];
 
+    // 初始化easycanvas实例
     var $Painter = new Easycanvas.painter();
     $Painter.register(document.getElementById('foo'), {
         width: width,
@@ -35,8 +40,7 @@
     });
     $Painter.start();
 
-
-    // 创建一个物理对象，内部重力为1（“内部”的意思是这个东西本身不受重力影响，不会掉下去，作为容器）
+    // 初始化easycanvas物理引擎
     var $space = new Easycanvas.class.sprite({
         physics: {
             gravity: 1,
@@ -44,8 +48,11 @@
         },
     });
     $Painter.add($space);
+
+    // 设置easycanvas碰撞处理规则
     var space = $space.launch();
     space.addCollisionHandler(
+        // 球和方块碰撞
         BALL_TYPE, BLOCK_TYPE,
         null,
         null,
@@ -54,9 +61,14 @@
             var sq = cp.b.$sprite.name === 'square' ? cp.b.$sprite : cp.b.$sprite;
             var ball = cp.a.$sprite.name === 'square' ? cp.a.$sprite : cp.a.$sprite;
 
+            // 这里直接通过父对象从子对象拿数据，这种数据的依赖方式不好，但是这么简单个应用，无所谓了
+            // 更好的是例如通过easycanvas的自定义事件广播下去
             sq.children[0].content.text--;
             if (!sq.children[0].content.text) {
+                // 把方块撞成0了，先隐藏
                 sq.style.visible = false;
+
+                // 异步删除这个方块（为啥异步？因为要在碰撞处理之后再删，不然就透过去了）
                 $Painter.nextTick(() => {
                     sq.physicsOff();
                     sq.remove();
@@ -66,12 +78,14 @@
         }
     );
     space.addCollisionHandler(
+        // 球和球不碰撞（感觉看着很不真实啊，但是游戏就是这样的）
         BALL_TYPE, BALL_TYPE,
         function (cp) {
             return false;
         },
     );
 
+    // 放入小球
     function addBall () {
         var ballSprite = new Easycanvas.class.sprite({
             name: 'ball',
@@ -79,20 +93,21 @@
                 img: BALL,
             },
             physics: {
-                // 形状是一个以(10,10)为圆心的，半径10的圆
                 shape: [
-                    [ballSize/2, ballSize/2, ballSize/2 * 0.8]
+                    // 形状是一个以(ballSize / 2, ballSize / 2)为圆心的，半径也是ballSize / 2的圆
+                    // 改成位运算符吧，看着能高大上一点（其实在这里卵用没有）
+                    [ballSize >> 1, ballSize >> 1, ballSize >> 1]
                 ],
                 mass: 0.1, // 质量
-                friction: 0.3, // 摩擦
-                elasticity: 1, // 弹性
+                friction: 0.3, // 摩擦（摩擦太大了会损失能量）
+                elasticity: 1, // 弹性（弹性为1，弹着才能爽一点）
                 collisionType: BALL_TYPE,
             },
             style: {
                 tw: ballSize, th: ballSize,
                 sx: 0, sy: 0,
                 tx: Math.floor(Math.random() * 300) + 1,
-                ty: Math.floor(Math.random() * 20) + 1,
+                ty: 15,
                 locate: 'lt',
                 zIndex: 1,
             },
@@ -124,9 +139,8 @@
                     [[0, 30], [30, 30]],
                     [[30, 30], [30, 0]],
                     [[30, 0], [0, 0]]
-                    // [0, 0], [30, 0], [30, 30], [0, 30]
                 ],
-                mass: 0.1, // 质量比球大
+                mass: 0.1,
                 friction: 0.3,
                 elasticity: 1,
                 collisionType: BLOCK_TYPE,
