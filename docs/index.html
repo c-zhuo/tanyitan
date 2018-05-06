@@ -5,13 +5,16 @@
 
 <style>
     body {
-        margin: 10px;
+        margin: 0;
         text-align: center;
+        background: black;
     }
     canvas {
         border: 1px solid grey;
+        height: 100%;
         max-width: 100%;
-        max-height: 100%;
+        background-image: url(http://a3.topitme.com/2/d4/ff/1144306867e94ffd42o.jpg);
+        background-size: auto 100%;
     }
 </style>
 <body>
@@ -20,18 +23,14 @@
 
 <script>
     // 在html直接写代码，不编译、不构建，不然应该用const的
-    var width = 400, height = 600, ballSize = 30;
-
-    // 尺寸
-    var el = document.getElementById('el');
-    var maxHeight = el.style.height = document.body.clientHeight - 20;
-    if (document.body.clientWidth < document.body.clientHeight * 0.66) {
-        var maxWidth = el.style.width = document.body.clientWidth - 20;
-        el.style.height = (document.body.clientWidth - 20) / 2 * 3;
-    }
+    var width = 400, height = 600, ballSize = 20;
 
     // 记录鼠标轨迹
     var mouse = {x: 300, y: 50};
+    var mouseRecord = function ($e) {
+        mouse.x = $e.canvasX;
+        mouse.y = Math.max(30, $e.canvasY);
+    };
 
     // 游戏状态
     var canShoot = true;
@@ -52,14 +51,8 @@
         width: width,
         height: height,
         events: {
-            mousemove: function ($e) {
-                mouse.x = $e.canvasX;
-                mouse.y = Math.max(30, $e.canvasY);
-            },
-            touchmove: function ($e) {
-                mouse.x = $e.canvasX;
-                mouse.y = Math.max(30, $e.canvasY);
-            },
+            mousemove: mouseRecord,
+            touchmove: mouseRecord,
             mouseup: shoot,
             touchend: shoot,
         }
@@ -74,8 +67,7 @@
         },
         style: {
             tx: 5, ty: 5,
-            textAlign: 'left',
-            textVerticalAlign: 'top',
+            textAlign: 'left', textVerticalAlign: 'top',
             color: 'black'
         }
     });
@@ -87,8 +79,7 @@
         },
         style: {
             tx: 395, ty: 5,
-            textAlign: 'right',
-            textVerticalAlign: 'top',
+            textAlign: 'right', textVerticalAlign: 'top',
             color: 'black'
         }
     });
@@ -96,8 +87,8 @@
     // 初始化easycanvas物理引擎
     var $space = new Easycanvas.class.sprite({
         physics: {
-            gravity: 1,
-            accuracy: 3,
+            gravity: 2,
+            accuracy: 2,
         },
     });
     $Painter.add($space);
@@ -109,7 +100,16 @@
         return false;
     });
     // 球和方块碰撞
-    space.addCollisionHandler(BALL_TYPE, BLOCK_TYPE, null, null, null,
+    space.addCollisionHandler(BALL_TYPE, BLOCK_TYPE, null,  function (cp) {
+        if (Math.abs(cp.body_a.vy) < 1) {
+            // 防止小球停到方块上
+            cp.body_a.setVel({
+                x: Math.random() * 10 - 5,
+                y: -300,
+            });
+        }
+        return true;
+    }, null,
     function (cp) {
         var block = cp.b.$sprite.name === 'block' ? cp.b.$sprite : cp.a.$sprite;
         var ball = cp.a.$sprite.name === 'block' ? cp.b.$sprite : cp.a.$sprite;
@@ -145,6 +145,10 @@
     // 球和吃的碰撞
     space.addCollisionHandler(BALL_TYPE, BONUS_TYPE, null, null, null, function (cp) {
         var bonus = cp.a.$sprite.name === 'bonus' ? cp.a.$sprite : cp.b.$sprite;
+        var ball = cp.a.$sprite.name === 'ball' ? cp.a.$sprite : cp.b.$sprite;
+
+        // 撞过一次就重置作用力（这样只剩下重力了，就开始往下掉）
+        ball.$physics.body.resetForces();
 
         // 一个球被连续撞，只加一次
         if (bonus.used) return false;
@@ -189,10 +193,11 @@
                     alert('You lose');
                 } else {
                     startAim();
-                    addBlock(5 + score / 5, true);
-                    Math.random() < 0.5 && addBlock(5 + score / 6, true);
-                    Math.random() < 0.3 && addBlock(5 + score / 7, true);
-                    Math.random() < 0.2 && addBlock(5 + score / 8, true);
+                    addBlock(5 + score / 10, true);
+                    Math.random() < 0.5 && addBlock(5 + score / 9, true);
+                    Math.random() < 0.3 && addBlock(5 + score / 8, true);
+                    Math.random() < 0.2 && addBlock(5 + score / 7, true);
+                    Math.random() < 0.3 && addBonus();
                     Math.random() < 0.3 && addBonus();
                 }
             }
@@ -258,8 +263,8 @@
                     [ballSize >> 1, ballSize >> 1, ballSize >> 1]
                 ],
                 mass: 1, // 质量
-                friction: 0.2, // 摩擦（摩擦太大了会损失能量）
-                elasticity: 0.7, // 弹性
+                friction: 0.1, // 摩擦（摩擦太大了会损失能量）
+                elasticity: 0.8, // 弹性
                 collisionType: BALL_TYPE,
             },
             style: {
@@ -276,7 +281,7 @@
         $Painter.nextTick(function () {
             $Painter.nextTick(function () {
                 // 抵消重力
-                $ball.$physics.body.applyForce({x: 0, y: 500}, {x: 0, y: 0});
+                $ball.$physics.body.applyForce({x: 0, y: 1000}, {x: 0, y: 0});
 
                 // 初速度
                 var speed = {
@@ -295,6 +300,8 @@
         });
     }
 
+    // 防止方块重叠，记录上一次方块的X坐标
+    var lastBlockPositionX = 50;
     function addBlock (max, boolAddToBottom) {
         var deg = Math.floor(Math.random() * 360);
         var sprite = $space.add(new Easycanvas.class.sprite({
@@ -309,16 +316,16 @@
                     [[30, 30], [30, 0]],
                     [[30, 0], [0, 0]]
                 ],
-                mass: 100,
+                mass: 1,
                 friction: 0.1,
-                elasticity: 0.8,
+                elasticity: 0.9,
                 collisionType: BLOCK_TYPE,
                 static: true,
             },
             style: {
                 tw: 30, th: 30,
-                tx: Math.floor(Math.random() * (width - 100)) + 50,
-                ty: boolAddToBottom ? 500 : height - 100 - Math.floor(Math.random() * 200),
+                tx: lastBlockPositionX + Math.floor(Math.random() * 20 - 10),
+                ty: boolAddToBottom ? 500 : height - 100 - Math.floor(Math.random() * 100),
                 locate: 'lt',
                 zIndex: Math.random(),
                 rotate: deg,
@@ -338,14 +345,14 @@
         }));
         sprite.physicsOn();
         blockArray.push(sprite);
-    }
 
-    for (var i = 0; i < 5; i += 1) {
-        addBlock(5);
+        lastBlockPositionX += 50;
+        if (lastBlockPositionX > 350) {
+            lastBlockPositionX = 50;
+        }
     }
 
     function addBonus () {
-        var deg = Math.floor(Math.random() * 360);
         var sprite = $space.add(new Easycanvas.class.sprite({
             name: 'bonus',
             bonus: true,
@@ -359,15 +366,15 @@
                     [[30, 30], [30, 0]],
                     [[30, 0], [0, 0]]
                 ],
-                mass: 100,
+                mass: 1,
                 friction: 0.1,
-                elasticity: 0.8,
+                elasticity: 0.5,
                 collisionType: BONUS_TYPE,
                 static: true,
             },
             style: {
                 tw: 30, th: 30,
-                tx: Math.floor(Math.random() * (width - 100)) + 50,
+                tx: lastBlockPositionX + Math.floor(Math.random() * 20 - 10),
                 ty: 500,
                 locate: 'lt',
                 zIndex: 2,
@@ -377,6 +384,11 @@
         }));
         sprite.physicsOn();
         blockArray.push(sprite);
+
+        lastBlockPositionX += 50;
+        if (lastBlockPositionX > 350) {
+            lastBlockPositionX = 50;
+        }
     }
 
     // 上半部分的边，摩擦小、弹性大
@@ -419,7 +431,13 @@
     }));
     bottomSprite.physicsOn();
 
+    // 第一关7个方块
+    for (var i = 0; i < 7; i++) {
+        addBlock(5);
+    }
+
+    // 阻止微信浏览器的默认下拉
     document.body.addEventListener('touchmove' , function (e) {
         e.preventDefault();
-    })
+    });
 </script>
