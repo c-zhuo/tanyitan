@@ -119,7 +119,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 /***/ }),
 
-/***/ 4:
+/***/ 3:
 /***/ (function(module, exports) {
 
 	"use strict";
@@ -5979,7 +5979,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var _utils2 = _interopRequireDefault(_utils);
 
-	var _mathPointRotate = __webpack_require__(4);
+	var _mathPointRotate = __webpack_require__(3);
 
 	var _mathPointRotate2 = _interopRequireDefault(_mathPointRotate);
 
@@ -6270,21 +6270,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	        space: space
 	    };
 
-	    space.setDefaultCollisionHandler(function (cp) {
-	        var a = cp.a.$sprite.trigger('physicsCollisionBegin', cp.b.$sprite, cp.b.$sprite.physics.collisionType, cp, space);
-	        var b = cp.b.$sprite.trigger('physicsCollisionBegin', cp.a.$sprite, cp.a.$sprite.physics.collisionType, cp, space);
-	        return !(a || b);
-	    }, function (cp) {
-	        var a = cp.a.$sprite.trigger('physicsCollisionPreSolve', cp.b.$sprite, cp.b.$sprite.physics.collisionType, cp, space);
-	        var b = cp.b.$sprite.trigger('physicsCollisionPreSolve', cp.a.$sprite, cp.a.$sprite.physics.collisionType, cp, space);
-	        return !(a || b);
-	    }, function (cp) {
-	        cp.a.$sprite.trigger('physicsCollisionPostSolve', cp.b.$sprite, cp.b.$sprite.physics.collisionType, cp, space);
-	        cp.b.$sprite.trigger('physicsCollisionPostSolve', cp.a.$sprite, cp.a.$sprite.physics.collisionType, cp, space);
-	    }, function (cp) {
-	        cp.a.$sprite.trigger('physicsCollisionSeparate', cp.b.$sprite, cp.b.$sprite.physics.collisionType, cp, space);
-	        cp.b.$sprite.trigger('physicsCollisionSeparate', cp.a.$sprite, cp.a.$sprite.physics.collisionType, cp, space);
-	    });
+	    var handlerFactory = function handlerFactory(hookName) {
+	        return function (cp) {
+	            var a = cp.a.$sprite.trigger(hookName, cp.b.$sprite, cp.b.$sprite.physics.collisionType, cp, space);
+	            var b = cp.b.$sprite.trigger(hookName, cp.a.$sprite, cp.a.$sprite.physics.collisionType, cp, space);
+	            return !(a || b);
+	        };
+	    };
+
+	    space.setDefaultCollisionHandler(handlerFactory('physicsCollisionBegin'), handlerFactory('physicsCollisionPreSolve'), handlerFactory('physicsCollisionPostSolve'), handlerFactory('physicsCollisionSeparate'));
+
+	    space.$sprite = this;
 
 	    return space;
 	};
@@ -6303,11 +6299,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var physics = $sprite.physics;
 	    if (physics) {
 	        var $space = getSpacedParent($sprite);
-	        var space = $space.$physics.space;
-	        if (!space) {
+	        if (!$space) {
 	            err('No physics container found launched.');
 	            return;
 	        }
+
+	        var space = $space.$physics.space;
 
 	        $sprite.$physics = {
 	            space: space
@@ -6326,35 +6323,58 @@ return /******/ (function(modules) { // webpackBootstrap
 	        spriteShape.forEach(function (s, index) {
 	            var shape = void 0;
 
+	            var spriteX = $sprite.getStyle('tx'),
+	                spriteY = $sprite.getStyle('ty'),
+	                spaceX = $space.getStyle('tx'),
+	                spaceY = $space.getStyle('ty');
+
 	            // [a, b, r]代表一个圆
 	            // [[a1, b1], [a2, b2], [a3, b4]]代表多边形各个顶点
 	            // [[a1, b1], [a2, b2]]代表一条线
 
 	            if (s.length === 3 && !s[0].length) {
+	                // 圆
 	                var offset = body ? cp.vzero : {
-	                    x: $sprite.getStyle('tx') - $space.getStyle('tx'),
-	                    y: -$sprite.getStyle('ty') + $space.getStyle('ty')
+	                    x: spriteX - spaceX,
+	                    y: -spriteY + spaceY
 	                };
+
 	                shape = new cp.CircleShape(body || space.staticBody, s[2], offset);
 	            } else if (s.length >= 3) {
-	                var verts = s.join(',').split(',').map(function (_num, _index) {
+	                // 多边形
+	                var rx = $sprite.style.rx || $sprite.getRect().tx + $sprite.getRect().tw / 2;
+	                var ry = $sprite.style.ry || $sprite.getRect().ty + $sprite.getRect().th / 2;
+
+	                var verts = s.map(function (point) {
+	                    var newPoint = (0, _mathPointRotate2.default)(point[0] + spriteX - spaceX, point[1] + spriteY + spaceY, rx - spaceX, ry + spaceY, $sprite.style.rotate || 0);
+
+	                    // 多边形的shape是相对于物体坐标的相对定位，所以和sprite位置相减
+	                    return [newPoint.x - spriteX, newPoint.y - spriteY];
+	                }).join(',').split(',').map(function (_num, _index) {
 	                    var num = Number(_num);
 	                    var res = _index % 2 ? -num : num;
 	                    return res ? res : 0;
 	                });
 
 	                var _offset = body ? cp.vzero : {
-	                    x: $sprite.getStyle('tx') - $space.getStyle('tx'),
-	                    y: -$sprite.getStyle('ty') + $space.getStyle('ty')
+	                    x: spriteX - spaceX,
+	                    y: -spriteY + spaceY
 	                };
 
 	                shape = new cp.PolyShape(body || space.staticBody, verts, _offset);
 	            } else if (s.length === 2) {
 	                // 线段构成
-	                var rx = $sprite.style.rx || $sprite.getRect().tx + $sprite.getRect().tw / 2;
-	                var ry = $sprite.style.ry || $sprite.getRect().ty + $sprite.getRect().th / 2;
+	                var _rx = $sprite.style.rx || $sprite.getRect().tx + $sprite.getRect().tw / 2;
+	                var _ry = $sprite.style.ry || $sprite.getRect().ty + $sprite.getRect().th / 2;
 
-	                shape = new cp.SegmentShape(space.staticBody, xy2Vect((0, _mathPointRotate2.default)(s[0][0] + $sprite.getStyle('tx') - $space.getStyle('tx'), s[0][1] + $sprite.getStyle('ty') + $space.getStyle('ty'), rx - $space.getStyle('tx'), ry + $space.getStyle('ty'), $sprite.style.rotate || 0)), xy2Vect((0, _mathPointRotate2.default)(s[1][0] + $sprite.getStyle('tx') - $space.getStyle('tx'), s[1][1] + $sprite.getStyle('ty') + $space.getStyle('ty'), rx - $space.getStyle('tx'), ry + $space.getStyle('ty'), $sprite.style.rotate || 0)), 0 // width
+	                var point1 = (0, _mathPointRotate2.default)(s[0][0] + spriteX - spaceX, s[0][1] + spriteY + spaceY, _rx - spaceX, _ry + spaceY, $sprite.style.rotate || 0);
+	                var point2 = (0, _mathPointRotate2.default)(s[1][0] + spriteX - spaceX, s[1][1] + spriteY + spaceY, _rx - spaceX, _ry + spaceY, $sprite.style.rotate || 0);
+	                point1.x -= spriteX;
+	                point1.y -= spriteY;
+	                point2.x -= spriteX;
+	                point2.y -= spriteY;
+
+	                shape = new cp.SegmentShape(space.staticBody, xy2Vect(point1), xy2Vect(point2), 0 // width
 	                );
 	            }
 
@@ -6362,6 +6382,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	            shape.setElasticity(getValueFromArrayOrStatic(physics, 'elasticity', index));
 	            shape.setCollisionType(getValueFromArrayOrStatic(physics, 'collisionType', index));
 	            shape.group = getValueFromArrayOrStatic(physics, 'group', index);
+
+	            shape.$sprite = $sprite;
+
 	            shapes.push(shape);
 	        });
 
@@ -6371,9 +6394,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	        if (body) {
 	            body.$sprite = $sprite;
 	        }
-	        shapes.forEach(function (shape) {
-	            shape.$sprite = $sprite;
-	        });
 	    }
 	}
 
