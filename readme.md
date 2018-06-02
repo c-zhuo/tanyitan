@@ -11,7 +11,9 @@
 - 3D版本的代码加上css和注释一共500行，在[这里](https://github.com/chenzhuo1992/tanyitan/blob/master/docs/index.html).
 
 3D:
+
 ![https://github.com/chenzhuo1992/tanyitan/blob/master/demo3d.gif](https://github.com/chenzhuo1992/tanyitan/blob/master/demo3d.gif)
 
 2D:
+
 ![https://github.com/chenzhuo1992/tanyitan/blob/master/demo.gif](https://github.com/chenzhuo1992/tanyitan/blob/master/demo.gif)
