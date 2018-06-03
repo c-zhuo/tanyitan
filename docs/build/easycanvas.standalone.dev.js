@@ -1307,7 +1307,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    utils: _utils2.default,
 	    mirror: _mirror2.default,
 	    class: _main2.default,
-	    $version: '0.5.0',
+	    $version: '0.5.1',
 	    env: ("develop")
 	};
 
@@ -3056,7 +3056,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	                ['tx', 'ty', 'tw', 'th', 'rotate', 'rx', 'ry'].forEach(function (key) {
 	                    (function (_key) {
 	                        $selectMask.style[_key] = function () {
-	                            return $sprite.$cache[_key];
+	                            return $sprite.$cache && $sprite.$cache[_key];
 	                        };
 	                    })(key);
 	                });
