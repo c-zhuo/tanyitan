@@ -235,8 +235,8 @@
                                     blockArray.forEach(function (block) {
                                         block.physicsOff();
 
-                                        if (block.style.ty < 50) {
-                                            if (block.name === 'block') {
+                                        if (block.style.ty < 100) {
+                                            if (block.name === '物理方块') {
                                                 canShoot = false;
                                             } else {
                                                 if (block.$canvas) {
