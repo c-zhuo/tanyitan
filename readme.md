@@ -8,7 +8,7 @@
 
 - 2D版本的代码加上css和注释一共400行，在[这里](https://github.com/chenzhuo1992/tanyitan/blob/master/docs/2d.html).
 
-- 3D版本的代码加上css和注释一共500行，在[这里](https://github.com/chenzhuo1992/tanyitan/blob/master/docs/index.html).
+- 3D版本的代码加上css和注释一共600行，在[这里](https://github.com/chenzhuo1992/tanyitan/blob/master/docs/index.html).
 
 3D:
 
