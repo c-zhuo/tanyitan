@@ -1403,15 +1403,11 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var _m2 = _interopRequireDefault(_m);
 
-	var _webglShapes = __webpack_require__(49);
-
-	var _webglShapes2 = _interopRequireDefault(_webglShapes);
-
 	var _utils = __webpack_require__(1);
 
 	var _utils2 = _interopRequireDefault(_utils);
 
-	var _math = __webpack_require__(51);
+	var _math = __webpack_require__(50);
 
 	var _math2 = _interopRequireDefault(_math);
 
@@ -1421,14 +1417,12 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-	var m4 = (0, _m2.default)(); /** ********** *
-	                              *
-	                              * Support webgl rendering
-	                              * - Usage: set {webgl: true} in config on registering your canvas instance.
-	                              *
-	                              * ********** **/
-
-	var inBrowser = typeof window !== 'undefined';
+	/** ********** *
+	 *
+	 * Support webgl rendering
+	 * - Usage: set {webgl: true} in config on registering your canvas instance.
+	 *
+	 * ********** **/
 
 	var err = function err(msg) {
 	    console.error('[Easycanvas-webgl] ' + msg);
@@ -1440,30 +1434,39 @@ return /******/ (function(modules) { // webpackBootstrap
 	var Shader_Fragment_Textcoord = '\n    precision mediump float;\n\n    varying vec2 v_texcoord;\n\n    uniform sampler2D u_texture;\n\n    void main() {\n       gl_FragColor = texture2D(u_texture, v_texcoord);\n    }\n';
 	var Shader_Fragment_Color = '\n    precision mediump float;\n\n    varying vec4 v_color;\n\n    uniform sampler2D u_texture;\n\n    void main() {\n       gl_FragColor = v_color;\n    }\n';
 
-	var createShader = function () {
-	    var shaderCachePool = {};
+	// var parentNode = document.body || document.head || document;
 
-	    return function (gl, sourceCode, type) {
-	        if (shaderCachePool[sourceCode]) {
-	            return shaderCachePool[sourceCode];
-	        }
+	// var script1 = document.createElement('script');
+	// script1.id = 'drawImage-vertex-shader';
+	// script1.type = 'x-shader/x-vertex';
+	// parentNode.appendChild(script1);
 
-	        // Compiles either a shader of type gl.VERTEX_SHADER or gl.FRAGMENT_SHADER
-	        var shader = gl.createShader(type);
-	        gl.shaderSource(shader, sourceCode);
-	        gl.compileShader(shader);
+	// var script2 = document.createElement('script');
+	// script2.id = 'drawImage-fragment-shader';
+	// script2.type = 'x-shader/x-fragment';
+	// parentNode.appendChild(script2);
 
-	        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-	            var info = gl.getShaderInfoLog(shader);
-	            throw 'Could not compile WebGL program. \n\n' + info;
-	        }
+	var shaderCachePool = {};
+	function createShader(gl, sourceCode, type) {
+	    if (shaderCachePool[sourceCode]) {
+	        return shaderCachePool[sourceCode];
+	    }
 
-	        shaderCachePool[sourceCode] = shader;
-	        return shader;
-	    };
-	}();
+	    // Compiles either a shader of type gl.VERTEX_SHADER or gl.FRAGMENT_SHADER
+	    var shader = gl.createShader(type);
+	    gl.shaderSource(shader, sourceCode);
+	    gl.compileShader(shader);
 
-	var createProgram = function createProgram(gl, vertexShader, fragmentShader) {
+	    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+	        var info = gl.getShaderInfoLog(shader);
+	        throw 'Could not compile WebGL program. \n\n' + info;
+	    }
+
+	    shaderCachePool[sourceCode] = shader;
+	    return shader;
+	}
+
+	function createProgram(gl, vertexShader, fragmentShader) {
 	    var program = gl.createProgram();
 
 	    // Attach pre-existing shaders
@@ -1478,54 +1481,56 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    return program;
-	};
+	}
 
 	// 0-color 1-textcoord
-	var toggleShader = function () {
-	    var lastType;
+	var lastType;
+	var toggleShader = function toggleShader(gl, type) {
+	    if (lastType === type) return;
 
-	    return function (gl, type) {
-	        if (lastType === type) return;
+	    lastType = type;
 
-	        lastType = type;
+	    var shaderVertexColor, shaderFragmentColor;
+	    if (type === 0) {
+	        shaderVertexColor = createShader(gl, Shader_Vertex_Color, gl.VERTEX_SHADER);
+	        shaderFragmentColor = createShader(gl, Shader_Fragment_Color, gl.FRAGMENT_SHADER);
+	    } else {
+	        shaderVertexColor = createShader(gl, Shader_Vertex_Textcoord, gl.VERTEX_SHADER);
+	        shaderFragmentColor = createShader(gl, Shader_Fragment_Textcoord, gl.FRAGMENT_SHADER);
+	    }
 
-	        var shaderVertexColor, shaderFragmentColor;
-	        if (type === 0) {
-	            shaderVertexColor = createShader(gl, Shader_Vertex_Color, gl.VERTEX_SHADER);
-	            shaderFragmentColor = createShader(gl, Shader_Fragment_Color, gl.FRAGMENT_SHADER);
-	        } else {
-	            shaderVertexColor = createShader(gl, Shader_Vertex_Textcoord, gl.VERTEX_SHADER);
-	            shaderFragmentColor = createShader(gl, Shader_Fragment_Textcoord, gl.FRAGMENT_SHADER);
-	        }
+	    gl.program = createProgram(gl, shaderVertexColor, shaderFragmentColor);
 
-	        gl.program = createProgram(gl, shaderVertexColor, shaderFragmentColor);
+	    gl.useProgram(gl.program);
 
-	        gl.useProgram(gl.program);
+	    // look up where the vertex data needs to go.
+	    gl.positionLocation = gl.getAttribLocation(gl.program, 'a_position');
+	    if (type === 0) {
+	        gl.colorLocation = gl.getAttribLocation(gl.program, 'a_color');
+	    } else {
+	        gl.texcoordLocation = gl.getAttribLocation(gl.program, 'a_texcoord');
+	    }
 
-	        // look up where the vertex data needs to go.
-	        gl.positionLocation = gl.getAttribLocation(gl.program, 'a_position');
-	        if (type === 0) {
-	            gl.colorLocation = gl.getAttribLocation(gl.program, 'a_color');
-	        } else {
-	            gl.texcoordLocation = gl.getAttribLocation(gl.program, 'a_texcoord');
-	        }
+	    // lookup uniforms
+	    gl.matrixLocation = gl.getUniformLocation(gl.program, 'u_matrix');
+	    if (type === 0) {
+	        gl.textureLocation = gl.getUniformLocation(gl.program, 'u_texture');
+	    } else {
+	        gl.textureMatrixLocation = gl.getUniformLocation(gl.program, 'u_textureMatrix');
+	    }
 
-	        // lookup uniforms
-	        gl.matrixLocation = gl.getUniformLocation(gl.program, 'u_matrix');
-	        if (type === 0) {
-	            gl.textureLocation = gl.getUniformLocation(gl.program, 'u_texture');
-	        } else {
-	            gl.textureMatrixLocation = gl.getUniformLocation(gl.program, 'u_textureMatrix');
-	        }
+	    gl.enableVertexAttribArray(gl.positionLocation);
+	    gl.enableVertexAttribArray(gl.texcoordLocation);
+	    gl.enableVertexAttribArray(gl.colorLocation);
+	};
 
-	        gl.enableVertexAttribArray(gl.positionLocation);
-	        gl.enableVertexAttribArray(gl.texcoordLocation);
-	        gl.enableVertexAttribArray(gl.colorLocation);
-	    };
-	}();
+	window.m4 = (0, _m2.default)();
 
 	var textCachePool = {};
-	var webglRender = function webglRender($sprite, settings, $canvas) {
+
+	// Unlike images, textures do not have a width and height associated
+	// with them so we'll pass in the width and height of the texture
+	window.Easycanvas.$webglPainter = function ($sprite, settings, $canvas) {
 	    var props = $sprite.props;
 	    var webgl = $sprite.webgl;
 	    var gl = $canvas.$gl;
@@ -1548,10 +1553,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	                var textCtx = document.createElement('canvas').getContext('2d');
 	                textCtx.clearRect(0, 0, textCtx.canvas.width, textCtx.canvas.height);
 
+	                // Puts text in center of canvas.
 	                textCtx.canvas.width = props.content.length * parseInt(props.font) * 2;
 	                textCtx.canvas.height = parseInt(props.font) + 5;
 	                textCtx.font = props.font;
 	                textCtx.textAlign = props.align;
+	                // textCtx.textBaseline = "middle";
 	                textCtx.fillStyle = props.color;
 	                textCtx.fillText(props.content, props.align === 'right' ? textCtx.canvas.width : props.align === 'center' ? textCtx.canvas.width / 2 : 0, textCtx.canvas.height - 5);
 
@@ -1600,12 +1607,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
 	        // 跳过绘制
 	        var longSide = webgl.longSide * 1.8; // 三维根号3
-	        var depth = $canvas.webgl.depth;
-	        var meet = (0, _math2.default)(webgl.tx - longSide, webgl.ty - longSide, longSide * 2, longSide * 2, webgl.tz / depth * $canvas.width / 2, webgl.tz / depth * $canvas.height / 2, $canvas.width - webgl.tz / depth * $canvas.width / 2, $canvas.height - webgl.tz / depth * $canvas.height / 2, 0, 0, 0);
+	        var meet = (0, _math2.default)(webgl.tx - longSide, webgl.ty - longSide, longSide * 2, longSide * 2, webgl.tz / 10000 * $canvas.width / 2, webgl.tz / 10000 * $canvas.height / 2, $canvas.width - webgl.tz / 10000 * $canvas.width / 2, $canvas.height - webgl.tz / 10000 * $canvas.height / 2, 0, 0, 0);
 	        if (!meet) {
 	            // console.log('miss');
 	            return;
 	        }
+
+	        // webgl.tx 
 
 	        webglRender3d($canvas, webgl);
 	    }
@@ -1673,7 +1681,11 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    if (colorBuffer) {
 	        toggleShader(gl, 0);
+	        // Turn on the color attribute
+	        // gl.enableVertexAttribArray(gl.colorLocation);
+	        // Bind the color buffer.
 	        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+	        // Tell the attribute how to get data out of colorBuffer (ARRAY_BUFFER)
 	        var size = 3; // 3 components per iteration
 	        var type = gl.UNSIGNED_BYTE; // the data is 8bit unsigned values
 	        var normalize = true; // normalize the data (convert from 0-255 to 0-1)
@@ -1682,7 +1694,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	        gl.vertexAttribPointer(gl.colorLocation, size, type, normalize, stride, offset);
 	    } else if (texcoordBuffer) {
 	        toggleShader(gl, 1);
+	        // Turn on the teccord attribute
+	        // gl.enableVertexAttribArray(gl.texcoordLocation);
+	        // Bind the position buffer.
 	        gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+	        // Tell the position attribute how to get data out of positionBuffer (ARRAY_BUFFER)
 	        var size = 2; // 2 components per iteration
 	        var type = gl.FLOAT; // the data is 32bit floats
 	        var normalize = false; // don't normalize the data
@@ -1692,7 +1708,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 
 	    if (webgl.vertices) {
+	        // Turn on the position attribute
+	        // gl.enableVertexAttribArray(gl.positionLocation);
+	        // Bind the position buffer.
 	        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+	        // Tell the position attribute how to get data out of positionBuffer (ARRAY_BUFFER)
 	        var size = 3; // 3 components per iteration
 	        var type = gl.FLOAT; // the data is 32bit floats
 	        var normalize = false; // don't normalize the data
@@ -1701,12 +1721,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	        gl.vertexAttribPointer(gl.positionLocation, size, type, normalize, stride, offset);
 	    }
 
-	    if ($canvas.webgl.fudgeFactor) {
-	        var fudgeLocation = gl.getUniformLocation(gl.program, "u_fudgeFactor");
-	        var fudgeFactor = $canvas.webgl.fudgeFactor;
-	        gl.uniform1f(fudgeLocation, fudgeFactor);
+	    {
+	        if ($canvas.webgl.fudgeFactor) {
+	            var fudgeLocation = gl.getUniformLocation(gl.program, "u_fudgeFactor");
+	            var fudgeFactor = $canvas.webgl.fudgeFactor;
+	            gl.uniform1f(fudgeLocation, fudgeFactor);
+	        }
 	    }
-
 	    {
 	        // // Compute the matrices
 	        // var matrix = m4.projection(gl.canvas.clientWidth, gl.canvas.clientHeight, 500);
@@ -1718,8 +1739,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	        matrix = m4.scale(matrix, webgl.scaleX || 1, webgl.scaleY || 1, webgl.scaleZ || 1);
 	        var projectionMatrix = matrix;
 	    }
-
-	    // if ($canvas.webgl.camera) {
+	    // {
 	    //     // camera
 	    //     var fieldOfViewRadians = degToRad(60);
 	    //     var modelXRotationRadians = degToRad(0);
@@ -1731,8 +1751,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	    //     // var projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
 
 	    //     var cameraPosition = [
-	    //         degToRad(utils.funcOrValue($canvas.webgl.camera.rx || 0, $canvas)),
-	    //         degToRad(utils.funcOrValue($canvas.webgl.camera.ry || 0, $canvas)),
+	    //         degToRad(utils.funcOrValue($canvas.webgl.camera.rx, $canvas)),
+	    //         degToRad(utils.funcOrValue($canvas.webgl.camera.ry, $canvas)),
 	    //         // utils.funcOrValue($canvas.webgl.camera.rz, $canvas),
 	    //         1,
 	    //     ];
@@ -1776,7 +1796,6 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    // Create a buffer.
 	    if (!cacheBuffer2d) {
-	        // if (1) {
 	        cacheBuffer2d = gl.createBuffer();
 	        gl.bindBuffer(gl.ARRAY_BUFFER, cacheBuffer2d);
 	        // Put a unit quad in the buffer
@@ -1786,24 +1805,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	        // 0, 1,
 	        // 1, 1,
 	        0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1];
-	        // const textureCoordinates = [
-	        //     // 0, 0,
-	        //     // 1, 0,
-	        //     // 0, 1,
-	        //     // 1, 1,
-	        //     srcX / texWidth, srcY / texHeight,
-	        //     srcX / texWidth, srcHeight / texHeight + srcY / texHeight,
-	        //     srcWidth / texWidth + srcX / texWidth, srcY / texHeight,
-	        //     srcWidth / texWidth + srcX / texWidth, srcY / texHeight,
-	        //     srcX / texWidth, srcHeight / texHeight + srcY / texHeight,
-	        //     srcWidth / texWidth + srcX / texWidth, srcHeight / texHeight + srcY / texHeight,
-	        // ];
-
+	        console.log('create');
 	        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordinates), gl.STATIC_DRAW);
 	    }
 
 	    gl.bindBuffer(gl.ARRAY_BUFFER, cacheBuffer2d);
+	    // gl.enableVertexAttribArray(gl.positionLocation);
 	    gl.vertexAttribPointer(gl.positionLocation, 2, gl.FLOAT, false, 0, 0);
+	    // gl.enableVertexAttribArray(gl.texcoordLocation);
 	    gl.vertexAttribPointer(gl.texcoordLocation, 2, gl.FLOAT, false, 0, 0);
 
 	    // Create a buffer for texture coords
@@ -1851,16 +1860,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	    // gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 	};
 
-	var webglRegister = function webglRegister($canvas, option) {
-	    $canvas.$isWebgl = true;
+	window.Easycanvas.$webglRegister = function ($canvas, option) {
+	    var gl = $canvas.$gl = $canvas.$paintContext;
 
 	    $canvas.webgl = {
 	        depth: option.webgl.depth || 10000,
-	        fudgeFactor: option.webgl.fudgeFactor || 0,
-	        camera: option.webgl.camera
+	        fudgeFactor: option.webgl.fudgeFactor || 0
 	    };
-
-	    var gl = $canvas.$gl = $canvas.$paintContext;
 
 	    gl.orthographic = m4.orthographic(0, $canvas.width, $canvas.height, 0, -$canvas.webgl.depth, $canvas.webgl.depth);
 
@@ -1907,118 +1913,28 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	};
 
-	var onCreate = function onCreate(_option) {
-	    if (_option.webgl) {
-	        this.$paintContext = this.$dom.getContext('webgl', {
-	            alpha: true,
-	            premultipliedAlpha: false
-	        });
-
-	        if (this.$paintContext) {
-	            webglRegister(this, _option);
-	        } else {
-	            if (true) {
-	                err('Webgl is not supported in current browser, using canvas2d instead.');
-	            }
-
-	            if (_option.webgl.fallback) {
-	                _option.webgl.fallback.call(this);
-	            }
-	        }
-	    }
-	};
-
-	var onPaint = function onPaint() {
-	    var $sprite = this;
-	    var $canvas = this.$canvas;
-
-	    if ($sprite.webgl) {
-	        $sprite.$rendered = true;
-
-	        var _webgl = {
-	            tx: $sprite.getStyle('tx'),
-	            ty: $sprite.getStyle('ty'),
-	            tz: _utils2.default.funcOrValue($sprite.webgl.tz, $sprite) || 0
-	        };
-
-	        for (var key in $sprite.webgl) {
-	            // 耗性能
-	            _webgl[key] = _utils2.default.funcOrValue($sprite.webgl[key], $sprite) || 0;
-	        }
-
-	        var $paintSprite = {
-	            $id: $sprite.$id,
-	            type: '3d',
-	            webgl: _webgl
-	        };
-
-	        if (true) {
-	            // 开发环境下，将元素挂载到$children里以供标记
-	            $paintSprite.$origin = $sprite;
-	        };
-
-	        $canvas.$children.push($paintSprite);
-	    }
-	};
-
-	var onRender = function onRender($sprite, settings) {
-	    var $canvas = this;
-
-	    if ($canvas.$isWebgl) {
-	        webglRender($sprite, settings, $canvas);
-	        return true;
-	    }
-	};
-
-	var plugin = {
-	    onCreate: onCreate,
-	    onPaint: onPaint,
-	    onRender: onRender,
-	    webglShapes: _webglShapes2.default
-	};
-
-	if (inBrowser && window.Easycanvas) {
-	    Easycanvas.use(plugin);
-	    Easycanvas.webglShapes = _webglShapes2.default;
-	} else {
-	    module.exports = plugin;
-	}
-
-/***/ }),
-
-/***/ 49:
-/***/ (function(module, exports) {
-
-	'use strict';
-
-	var blockIndices = new Uint16Array([0, 1, 2, 0, 2, 3, // front  
-	4, 5, 6, 4, 6, 7, // right  
-	8, 9, 10, 8, 10, 11, // up  
-	12, 13, 14, 12, 14, 15, // left  
-	16, 17, 18, 16, 18, 19, // down  
-	20, 21, 22, 20, 22, 23]);
-
-	var blockTextures = new Float32Array(arrayRepeat([0, 0, 0, 1, 1, 1, 1, 0], 6));
-
-	var regularPolyhedron = {
-	    icosahedron: {
-	        vertices: [0, 0, -1.902, 0, 0, 1.902, -1.701, 0, -0.8507, 1.701, 0, 0.8507, 1.376, -1.000, -0.8507, 1.376, 1.000, -0.8507, -1.376, -1.000, 0.8507, -1.376, 1.000, 0.8507, -0.5257, -1.618, -0.8507, -0.5257, 1.618, -0.8507, 0.5257, -1.618, 0.8507, 0.5257, 1.618, 0.8507],
-	        indices: [[1, 11, 7], [1, 7, 6], [1, 6, 10], [1, 10, 3], [1, 3, 11], [4, 8, 0], [5, 4, 0], [9, 5, 0], [2, 9, 0], [8, 2, 0], [11, 9, 7], [7, 2, 6], [6, 8, 10], [10, 4, 3], [3, 5, 11], [4, 10, 8], [5, 3, 4], [9, 11, 5], [2, 7, 9], [8, 6, 2]]
-	    }
-	};
-
-	function arrayRepeat(arr, n) {
-	    var newArray = [];
-
+	var arrayRepeat = function arrayRepeat(arr, n) {
+	    var str = arr.join(',');
+	    var tmp = '';
 	    for (var i = 1; i <= n; i++) {
-	        newArray = newArray.concat(arr);
+	        tmp += str;
+	        if (i < n) {
+	            tmp += ',';
+	        }
 	    }
-
-	    return newArray;
+	    return tmp.split(',');
 	};
 
 	var createShapeWithCachedArray = function () {
 	    var cachePool = {};
+
+	    var blockTextures = new Float32Array(arrayRepeat([0, 0, 0, 1, 1, 1, 1, 0], 6));
+	    var blockIndices = new Uint16Array([0, 1, 2, 0, 2, 3, // front  
+	    4, 5, 6, 4, 6, 7, // right  
+	    8, 9, 10, 8, 10, 11, // up  
+	    12, 13, 14, 12, 14, 15, // left  
+	    16, 17, 18, 16, 18, 19, // down  
+	    20, 21, 22, 20, 22, 23]);
 
 	    return function (shape, args) {
 	        var colors = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : [];
@@ -2027,50 +1943,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        var result = {};
 
-	        if (shape === 'quadrilateral') {
-	            // var vertices = cachePool[key + 'v'] || new Float32Array([
-	            //     0, 0, 0,
-	            //     200, 0, 0,
-	            //     0, 100, 0,
-
-	            //     0, 100, 0,
-	            //     200, 0, 0,
-	            //     400, 100, 0,
-	            // ]);
-
-	            // var longSide = cachePool[key + 'l'] || Math.max(Math.max.apply(this, vertices), -Math.min.apply(this, vertices));
-
-	            // result.vertices = cachePool[key + 'v'] = vertices;
-	            // result.textures = new Float32Array(arrayRepeat([
-	            //     0, 0,
-	            //     1, 0,
-	            //     0, 1,
-	            //     0, 1,
-	            //     1, 0,
-	            //     1, 1,
-	            // ], 1));
-	            // result.longSide = cachePool[key + 'l'] = longSide;
-	        } else if (shape === 'icosahedron') {
-	            var vertices = cachePool[key + 'v'] || new Float32Array(regularPolyhedron[shape].vertices.map(function (v) {
-	                return v * args[0] / 2;
-	            }));
-
-	            var longSide = cachePool[key + 'l'] || Math.max(Math.max.apply(undefined, vertices), -Math.min.apply(undefined, vertices));
-
-	            result.vertices = cachePool[key + 'v'] = vertices;
-	            result.indices = new Uint16Array(regularPolyhedron[shape].indices.join(',').split(','));
-
-	            result.textures = cachePool[key + 't'];
-	            if (!result.textures) {
-	                result.textures = [];
-	                for (var i = 0; i < result.indices.length; i++) {
-	                    result.textures.push(Math.random().toFixed(2));
-	                }
-	                result.textures = cachePool[key + 't'] = new Float32Array(result.textures);
-	            }
-
-	            result.longSide = cachePool[key + 'l'] = longSide;
-	        } else if (shape === 'block') {
+	        if (shape === 'block') {
 	            var a = args[0] / 2;
 	            var b = args[1] / 2;
 	            var c = args[2] / 2;
@@ -2083,7 +1956,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            result.indices = blockIndices;
 	            result.textures = blockTextures;
 	            result.longSide = cachePool[key + 'l'] = longSide;
-	        } else if (shape === 'ball') {
+	        } else {
 	            // ball
 	            var vertexPositionData = cachePool[key + 'v'] || [];
 	            var indexData = cachePool[key + 'i'] || [];
@@ -2177,33 +2050,21 @@ return /******/ (function(modules) { // webpackBootstrap
 	    return structure;
 	};
 
-	var webglShapes = {
+	window.Easycanvas.webglShapes = {
 	    block: function block(opt) {
 	        var structure = createShapeWithCachedArray('block', [opt.a, opt.b, opt.c], opt.colors);
-	        return wrapper(structure, opt);
-	    },
-
-	    quadrilateral: function quadrilateral(opt) {
-	        var structure = createShapeWithCachedArray('quadrilateral', [opt.a, opt.b, opt.c], opt.colors);
 	        return wrapper(structure, opt);
 	    },
 
 	    ball: function ball(opt) {
 	        var structure = createShapeWithCachedArray('ball', [opt.r, opt.b || opt.lat || 20, opt.b || opt.lng || 20], opt.colors);
 	        return wrapper(structure, opt);
-	    },
-
-	    icosahedron: function icosahedron(opt) {
-	        var structure = createShapeWithCachedArray('icosahedron', [opt.r], opt.colors);
-	        return wrapper(structure, opt);
 	    }
 	};
 
-	module.exports = webglShapes;
-
 /***/ }),
 
-/***/ 51:
+/***/ 50:
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';

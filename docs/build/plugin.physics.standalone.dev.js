@@ -5992,8 +5992,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	                                         *
 	                                         * ********** **/
 
-	var inBrowser = typeof window !== 'undefined';
-
 	var getValueFromArrayOrStatic = function getValueFromArrayOrStatic(physics, key, index) {
 	    return or(physics[key][index], physics[key]);
 	};
@@ -6004,7 +6002,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	var cp = _chipmunk2.default;
 
-	var init = function init(opt) {
+	Easycanvas.extend(function (opt) {
 	    if (!opt.physics) return;
 
 	    var sprite = this;
@@ -6207,7 +6205,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	        sprite.$physics.body && cp2ec(sprite.$physics.body, sprite);
 	    });
-	};
+	});
 
 	var xy2Vect = function xy2Vect(pos) {
 	    // make a mark for debugging
@@ -6397,12 +6395,6 @@ return /******/ (function(modules) { // webpackBootstrap
 	            body.$sprite = $sprite;
 	        }
 	    }
-	}
-
-	if (inBrowser && window.Easycanvas) {
-	    Easycanvas.extend(init);
-	} else {
-	    module.exports = init;
 	}
 
 /***/ })
